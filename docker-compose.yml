@@ -1,6 +1,8 @@
 version: '3.5'
 
 services:
+
+
   mysql:
     image: mysql:8.0
     container_name: zabbix-mysql
@@ -70,6 +72,11 @@ services:
       zabbix-network:
         ipv4_address: 172.22.0.5
     restart: always
+  app:
+    build: ./app
+    ports:
+      - "5000:5050"
+    restart: always  
 
 networks:
   zabbix-network:
