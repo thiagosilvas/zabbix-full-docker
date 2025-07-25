@@ -1,12 +1,17 @@
+version: '3.5'
+
 services:
   mysql:
     image: mysql:8.0
     container_name: zabbix-mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-    expose:
-      - 3306
-      - 33060
+      - MYSQL_ROOT_PASSWORD=zabbix
+      - MYSQL_DATABASE=zabbix
+      - MYSQL_USER=zabbix
+      - MYSQL_PASSWORD=zabbix
+    command: --character-set-server=utf8 --collation-server=utf8_bin
+    ports:
+      - 3306:3306
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -17,12 +22,14 @@ services:
   zabbix-server:
     depends_on:
       - mysql
-    image: zabbix/zabbix-server-mysql:latest
+    image: zabbix/zabbix-server-mysql:alpine-7.0-latest
     container_name: zabbix-server
     environment:
-      - DB_SERVER_HOST=${DB_SERVER_HOST}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - DB_SERVER_HOST=mysql
+      - DB_SERVER_PORT=3306
+      - MYSQL_DATABASE=zabbix
+      - MYSQL_USER=zabbix
+      - MYSQL_PASSWORD=zabbix
     ports:
       - 10051:10051
     networks:
@@ -30,41 +37,27 @@ services:
         ipv4_address: 172.22.0.3
     restart: always
 
-  zabbix-agent:
-    depends_on:
-      - zabbix-server
-    image: zabbix/zabbix-agent:latest
-    container_name: zabbix-agent
-    environment:
-      - ZBX_HOSTNAME=${ZBX_HOSTNAME}
-      - ZBX_SERVER_HOST=${ZBX_SERVER_HOST}
-    expose:
-      - 10050
-    networks:
-      zabbix-network:
-        ipv4_address: 172.22.0.5
-    restart: always
-
-  zabbix-nginx:
+  zabbix-web:
     depends_on:
       - mysql
-    image: zabbix/zabbix-web-nginx-mysql:latest
-    container_name: zabbix-nginx
+      - zabbix-server
+    image: zabbix/zabbix-web-nginx-mysql:alpine-7.0-latest
+    container_name: zabbix-web
     environment:
-      - DB_SERVER_HOST=${DB_SERVER_HOST}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - ZBX_SERVER_HOST=${ZBX_SERVER_HOST}
-      - PHP_TZ=${PHP_TZ}
+      - DB_SERVER_HOST=mysql
+      - MYSQL_DATABASE=zabbix
+      - MYSQL_USER=zabbix
+      - MYSQL_PASSWORD=zabbix
+      - ZBX_SERVER_HOST=zabbix-server
+      - PHP_TZ=America/Sao_Paulo
     ports:
       - 80:8080
-      - 443:443
     networks:
       zabbix-network:
         ipv4_address: 172.22.0.4
     restart: always
 
-  zabbix-grafana:
+  grafana:
     image: grafana/grafana:latest
     container_name: zabbix-grafana
     environment:
@@ -75,20 +68,17 @@ services:
       - grafana_data:/var/lib/grafana
     networks:
       zabbix-network:
-        ipv4_address: 172.22.0.6
+        ipv4_address: 172.22.0.5
     restart: always
 
 networks:
   zabbix-network:
-    name: zabbix-network
     driver: bridge
     ipam:
       config:
         - subnet: 172.22.0.0/24
           gateway: 172.22.0.1
+
 volumes:
   mysql_data:
-    name: mysql
   grafana_data:
-    name: grafana
-
